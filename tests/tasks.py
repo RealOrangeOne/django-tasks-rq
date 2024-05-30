@@ -3,12 +3,12 @@ from django_tasks_rq import task
 
 @task()
 def noop_task(*args: tuple, **kwargs: dict) -> None:
-    pass
+    return None
 
 
 @task()
 async def noop_task_async(*args: tuple, **kwargs: dict) -> None:
-    pass
+    return None
 
 
 @task()
