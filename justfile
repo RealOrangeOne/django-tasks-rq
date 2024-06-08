@@ -3,6 +3,7 @@
   just --list
 
 test *ARGS:
+    ./manage.py makemigrations --check --noinput
     coverage run --source=django_tasks_rq manage.py test {{ ARGS }}
     coverage report
     coverage html
