@@ -41,3 +41,5 @@ DATABASES = {
         default="sqlite:///" + os.path.join(BASE_DIR, "db.sqlite3")
     )
 }
+
+USE_TZ = True
