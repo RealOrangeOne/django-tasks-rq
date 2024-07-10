@@ -1,4 +1,10 @@
-## Contributing
+# Contributing
+
+Found a bug? Want to fix an open issue? Got an idea for an improvement? Please contribute!
+
+**All** contributions are welcome, from absolutely anyone. Just open a PR, Issue or Discussion (as relevant) - no need to ask beforehand. If you're going to work on an issue, it's a good idea to say so on the issue, to make sure work isn't duplicated.
+
+## Development set up
 
 Fork, then clone the repo:
 
