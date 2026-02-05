@@ -1,4 +1,3 @@
-import json
 import os
 import uuid
 from typing import cast
@@ -7,17 +6,15 @@ from unittest.mock import patch
 import django_rq
 from asgiref.sync import async_to_sync
 from django.core.exceptions import SuspiciousOperation
-from django.db import transaction
-from django.test import TransactionTestCase, modify_settings, override_settings
-from django.urls import reverse
+from django.test import SimpleTestCase, override_settings
+from django_tasks import TaskResultStatus, default_task_backend, task_backends
+from django_tasks.base import Task
+from django_tasks.exceptions import InvalidTaskError, TaskResultDoesNotExist
 from fakeredis import FakeRedis, FakeStrictRedis
 from rq.defaults import UNSERIALIZABLE_RETURN_VALUE_PAYLOAD
 from rq.timeouts import TimerDeathPenalty
 
-from django_tasks_rq import TaskResultStatus, default_task_backend, task_backends
-from django_tasks_rq.backends.rq import Job, RQBackend
-from django_tasks.base import Task
-from django_tasks.exceptions import InvalidTaskError, TaskResultDoesNotExist
+from django_tasks_rq.backend import Job, RQBackend
 from tests import tasks as test_tasks
 
 
