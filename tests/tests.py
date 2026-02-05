@@ -134,7 +134,7 @@ class RQBackendTestCase(SimpleTestCase):
             ):
                 result = task.enqueue()
 
-                with self.assertLogs("django_tasks_rq", "DEBUG"):
+                with self.assertLogs("django_tasks", "DEBUG"):
                     self.run_worker()
 
                 result.refresh()
@@ -164,7 +164,7 @@ class RQBackendTestCase(SimpleTestCase):
     def test_complex_exception(self) -> None:
         result = test_tasks.complex_exception.enqueue()
 
-        with self.assertLogs("django_tasks_rq", "DEBUG"):
+        with self.assertLogs("django_tasks", "DEBUG"):
             self.run_worker()
 
         result.refresh()
@@ -190,7 +190,7 @@ class RQBackendTestCase(SimpleTestCase):
     def test_complex_return_value(self) -> None:
         result = test_tasks.complex_return_value.enqueue()
 
-        with self.assertLogs("django_tasks_rq", "DEBUG"):
+        with self.assertLogs("django_tasks", "DEBUG"):
             self.run_worker()
 
         result.refresh()
@@ -359,7 +359,7 @@ class RQBackendTestCase(SimpleTestCase):
         self.assertEqual(queue.count, 1)
 
     def test_enqueue_logs(self) -> None:
-        with self.assertLogs("django_tasks_rq", level="DEBUG") as captured_logs:
+        with self.assertLogs("django_tasks", level="DEBUG") as captured_logs:
             result = test_tasks.noop_task.enqueue()
 
         self.assertEqual(len(captured_logs.output), 1)
@@ -369,7 +369,7 @@ class RQBackendTestCase(SimpleTestCase):
     def test_started_finished_logs(self) -> None:
         result = test_tasks.noop_task.enqueue()
 
-        with self.assertLogs("django_tasks_rq", level="DEBUG") as captured_logs:
+        with self.assertLogs("django_tasks", level="DEBUG") as captured_logs:
             self.run_worker()
 
         self.assertEqual(len(captured_logs.output), 2)
@@ -382,7 +382,7 @@ class RQBackendTestCase(SimpleTestCase):
     def test_failed_logs(self) -> None:
         result = test_tasks.failing_task_value_error.enqueue()
 
-        with self.assertLogs("django_tasks_rq", level="DEBUG") as captured_logs:
+        with self.assertLogs("django_tasks", level="DEBUG") as captured_logs:
             self.run_worker()
 
         self.assertEqual(len(captured_logs.output), 2)
@@ -448,7 +448,7 @@ class RQBackendTestCase(SimpleTestCase):
         # Create and run a failing task normally first
         result = test_tasks.failing_task_value_error.enqueue()
 
-        with self.assertLogs("django_tasks_rq", level="DEBUG"):
+        with self.assertLogs("django_tasks", level="DEBUG"):
             self.run_worker()
 
         # Get the underlying RQ job
