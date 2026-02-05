@@ -20,9 +20,6 @@ source .venv/bin/activate
 python -m pip install -e --group dev
 ```
 
-> [!TIP]
-> To include support for a specific database, you can stack group flags (e.g. `--group dev --group postgres`). This is optional.
-
 Then you can run the tests with the [just](https://just.systems/man/en/) command runner:
 
 ```sh
