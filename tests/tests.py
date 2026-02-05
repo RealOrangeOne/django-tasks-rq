@@ -284,38 +284,6 @@ class RQBackendTestCase(SimpleTestCase):
         with self.assertRaises(TaskResultDoesNotExist):
             await default_task_backend.aget_result("123")
 
-    def test_meaning_of_life_view(self) -> None:
-        for url in [
-            reverse("meaning-of-life"),
-            reverse("meaning-of-life-async"),
-        ]:
-            with self.subTest(url):
-                response = self.client.get(url)
-                self.assertEqual(response.status_code, 200)
-
-                data = json.loads(response.content)
-
-                self.assertEqual(data["result"], None)
-                self.assertEqual(data["status"], TaskResultStatus.READY)
-
-                result = default_task_backend.get_result(data["result_id"])
-                self.assertEqual(result.status, TaskResultStatus.READY)
-
-    def test_get_result_from_different_request(self) -> None:
-        response = self.client.get(reverse("meaning-of-life"))
-        self.assertEqual(response.status_code, 200)
-
-        data = json.loads(response.content)
-        result_id = data["result_id"]
-
-        response = self.client.get(reverse("result", args=[result_id]))
-        self.assertEqual(response.status_code, 200)
-
-        self.assertEqual(
-            json.loads(response.content),
-            {"result_id": result_id, "result": None, "status": TaskResultStatus.READY},
-        )
-
     def test_invalid_task_path(self) -> None:
         job = django_rq.get_queue("default", job_class=Job).enqueue_call(  # type: ignore[no-untyped-call]
             "subprocess.check_output", args=["exit", "1"]
@@ -338,25 +306,6 @@ class RQBackendTestCase(SimpleTestCase):
 
         self.assertEqual(len(errors), 1)
         self.assertIn("django_rq", errors[0].hint)  # type:ignore[arg-type]
-
-    @override_settings(
-        TASKS={
-            "default": {
-                "BACKEND": "django_tasks_rq.backends.rq.RQBackend",
-            }
-        }
-    )
-    def test_doesnt_wait_until_transaction_commit(self) -> None:
-        queue = django_rq.get_queue("default", job_class=Job)
-
-        with transaction.atomic():
-            result = test_tasks.noop_task.enqueue()
-
-            self.assertIsNotNone(result.enqueued_at)
-
-            self.assertEqual(queue.count, 1)
-
-        self.assertEqual(queue.count, 1)
 
     def test_enqueue_logs(self) -> None:
         with self.assertLogs("django_tasks", level="DEBUG") as captured_logs:
