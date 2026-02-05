@@ -45,9 +45,6 @@ jobs:
           pip install Django~=${{ matrix.django-version }}
       - name: Lint
         run: just lint
-      - name: Run fast tests
-        if: ${{ !cancelled() }}
-        run: just test-fast -v2
       - name: Run tests
         if: ${{ !cancelled() }}
         run: just test -v2
