@@ -65,12 +65,6 @@ dev = [
     "django-tasks-rq[rq]",
     "fakeredis",
 ]
-mysql = [
-    "mysqlclient"
-]
-postgres = [
-    "psycopg[binary]",
-]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "N", "B", "A", "C4", "T20", "DJ", "S", "UP"]
