@@ -1,8 +1,6 @@
 import os
 import sys
 
-import dj_database_url
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 IN_TEST = "IN_TEST" in os.environ or (len(sys.argv) > 1 and sys.argv[1] == "test")
@@ -10,59 +8,32 @@ IN_TEST = "IN_TEST" in os.environ or (len(sys.argv) > 1 and sys.argv[1] == "test
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.messages",
-    "django.contrib.sessions",
-    "django.contrib.staticfiles",
     "django_tasks_rq",
+    "django_rq",
     "tests",
 ]
 
-TEMPLATES = [
-    {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
-        "APP_DIRS": True,
-        "OPTIONS": {
-            "context_processors": [
-                "django.template.context_processors.debug",
-                "django.template.context_processors.request",
-                "django.contrib.auth.context_processors.auth",
-                "django.contrib.messages.context_processors.messages",
-                "django.template.context_processors.static",
-            ]
-        },
-    },
-]
-
-MIDDLEWARE = [
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware",
-]
-
-STATIC_URL = "/static/"
-
 SECRET_KEY = "abcde12345"
-
-ROOT_URLCONF = "tests.urls"
-
-DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
-
-DATABASES = {
-    "default": dj_database_url.config(
-        default="sqlite:///" + os.path.join(BASE_DIR, "db.sqlite3")
-    )
-}
-
-if "sqlite" in DATABASES["default"]["ENGINE"]:
-    DATABASES["default"]["TEST"] = {"NAME": os.path.join(BASE_DIR, "db-test.sqlite3")}
-
 
 USE_TZ = True
 
 if not IN_TEST:
     DEBUG = True
-    TASKS = {"default": {"BACKEND": "django_tasks_rq.backends.database.DatabaseBackend"}}
+
+TASKS = {
+    "default": {
+        "BACKEND": "django_tasks_rq.RQBackend",
+        "QUEUES": ["default", "queue-1"],
+    }
+}
+
+RQ_QUEUES = {
+    "default": {
+        "HOST": "localhost",
+        "PORT": 6379,
+    },
+    "queue-1": {
+        "HOST": "localhost",
+        "PORT": 6379,
+    },
+}
