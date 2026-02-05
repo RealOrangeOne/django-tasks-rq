@@ -6,7 +6,7 @@ requires = [
 
 [project]
 name = "django-tasks-rq"
-description = "An implementation and backport of background workers and tasks in Django"
+description = "A Django Tasks backend which uses RQ as its underlying queue"
 authors = [
     {name = "Jake Howard"},
 ]
@@ -42,6 +42,9 @@ dependencies = [
     "Django>=4.2",
     "typing_extensions",
     "django-stubs-ext",
+    "django-rq",
+    "rq>=2.5",
+    "rq_scheduler",
 ]
 
 [project.urls]
@@ -49,20 +52,11 @@ Source = "https://github.com/RealOrangeOne/django-tasks-rq"
 Issues = "https://github.com/RealOrangeOne/django-tasks-rq/issues"
 Changelog = "https://github.com/RealOrangeOne/django-tasks-rq/releases"
 
-[project.optional-dependencies]
-rq = [
-    "django-rq",
-    "rq>=2.5",
-    "rq_scheduler",
-]
-
 [dependency-groups]
 dev = [
     "ruff",
     "coverage",
     "django-stubs[compatible-mypy]",
-    "dj-database-url",
-    "django-tasks-rq[rq]",
     "fakeredis",
 ]
 
@@ -71,8 +65,6 @@ select = ["E", "F", "I", "W", "N", "B", "A", "C4", "T20", "DJ", "S", "UP"]
 ignore = ["E501", "DJ008"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/db_worker_test_settings.py" = ["F403", "F405"]
-"tests/settings_fast.py" = ["F403", "F405"]
 "tests/**.py" = ["S101", "S603", "S105"]
 
 [tool.mypy]
