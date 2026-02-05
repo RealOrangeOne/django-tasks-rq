@@ -8,15 +8,6 @@ from django.apps import apps
 from django.core.checks import messages
 from django.core.exceptions import SuspiciousOperation
 from django.utils.functional import cached_property
-from redis.client import Redis
-from rq.defaults import UNSERIALIZABLE_RETURN_VALUE_PAYLOAD
-from rq.exceptions import NoSuchJobError
-from rq.job import Callback, JobStatus
-from rq.job import Job as BaseJob
-from rq.registry import ScheduledJobRegistry
-from rq.results import Result
-from typing_extensions import ParamSpec
-
 from django_tasks.backends.base import BaseTaskBackend
 from django_tasks.base import (
     TASK_DEFAULT_PRIORITY,
@@ -27,10 +18,18 @@ from django_tasks.base import (
     TaskResult,
     TaskResultStatus,
 )
-from django_tasks_rq.compat import TASK_CLASSES
+from django_tasks.compat import TASK_CLASSES
 from django_tasks.exceptions import TaskResultDoesNotExist
 from django_tasks.signals import task_enqueued, task_finished, task_started
 from django_tasks.utils import get_module_path, get_random_id
+from redis.client import Redis
+from rq.defaults import UNSERIALIZABLE_RETURN_VALUE_PAYLOAD
+from rq.exceptions import NoSuchJobError
+from rq.job import Callback, JobStatus
+from rq.job import Job as BaseJob
+from rq.registry import ScheduledJobRegistry
+from rq.results import Result
+from typing_extensions import ParamSpec
 
 T = TypeVar("T")
 P = ParamSpec("P")
