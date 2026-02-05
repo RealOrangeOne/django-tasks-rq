@@ -39,26 +39,7 @@ def get_fake_connection(config: dict, strict: bool) -> FakeRedis | FakeStrictRed
     )
 
 
-@override_settings(
-    TASKS={
-        "default": {
-            "BACKEND": "django_tasks_rq.backends.rq.RQBackend",
-            "QUEUES": ["default", "queue-1"],
-        }
-    },
-    RQ_QUEUES={
-        "default": {
-            "HOST": "localhost",
-            "PORT": 6379,
-        },
-        "queue-1": {
-            "HOST": "localhost",
-            "PORT": 6379,
-        },
-    },
-)
-@modify_settings(INSTALLED_APPS={"append": ["django_rq"]})
-class RQBackendTestCase(TransactionTestCase):
+class RQBackendTestCase(SimpleTestCase):
     def setUp(self) -> None:
         super().setUp()
 
@@ -422,9 +403,7 @@ class RQBackendTestCase(TransactionTestCase):
         self.assertEqual(django_rq.get_queue("queue-1").job_ids, [other_task.id])
 
     @override_settings(
-        TASKS={
-            "default": {"BACKEND": "django_tasks_rq.backends.rq.RQBackend", "QUEUES": []}
-        }
+        TASKS={"default": {"BACKEND": "django_tasks_rq.RQBackend", "QUEUES": []}}
     )
     def test_uses_rq_queues_for_queue_names(self) -> None:
         self.assertEqual(default_task_backend.queues, {"default", "queue-1"})
@@ -432,7 +411,7 @@ class RQBackendTestCase(TransactionTestCase):
     @override_settings(
         TASKS={
             "default": {
-                "BACKEND": "django_tasks_rq.backends.rq.RQBackend",
+                "BACKEND": "django_tasks_rq.RQBackend",
                 "QUEUES": ["queue-2"],
             }
         }
@@ -507,7 +486,7 @@ class RQBackendTestCase(TransactionTestCase):
         with override_settings(
             TASKS={
                 "default": {
-                    "BACKEND": "django_tasks_rq.backends.rq.RQBackend",
+                    "BACKEND": "django_tasks_rq.RQBackend",
                     "QUEUES": ["unknown_queue"],
                 }
             }
@@ -525,7 +504,7 @@ class RQBackendTestCase(TransactionTestCase):
         with override_settings(
             TASKS={
                 "default": {
-                    "BACKEND": "django_tasks_rq.backends.rq.RQBackend",
+                    "BACKEND": "django_tasks_rq.RQBackend",
                     "QUEUES": ["unknown_queue"],
                 }
             }
