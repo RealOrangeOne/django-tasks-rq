@@ -10,7 +10,7 @@ from django.core.exceptions import SuspiciousOperation
 from django.utils.functional import cached_property
 from django_tasks.backends.base import BaseTaskBackend
 from django_tasks.base import (
-    TASK_DEFAULT_PRIORITY,
+    DEFAULT_TASK_PRIORITY,
     TASK_MAX_PRIORITY,
     Task,
     TaskContext,
@@ -18,7 +18,6 @@ from django_tasks.base import (
     TaskResult,
     TaskResultStatus,
 )
-from django_tasks.compat import TASK_CLASSES
 from django_tasks.exceptions import TaskResultDoesNotExist
 from django_tasks.signals import task_enqueued, task_finished, task_started
 from django_tasks.utils import get_module_path, get_random_id
@@ -31,12 +30,14 @@ from rq.registry import ScheduledJobRegistry
 from rq.results import Result
 from typing_extensions import ParamSpec
 
+from .compat import TASK_CLASSES
+
 T = TypeVar("T")
 P = ParamSpec("P")
 
 RQ_STATUS_TO_RESULT_STATUS = {
     JobStatus.QUEUED: TaskResultStatus.READY,
-    JobStatus.FINISHED: TaskResultStatus.SUCCEEDED,
+    JobStatus.FINISHED: TaskResultStatus.SUCCESSFUL,
     JobStatus.FAILED: TaskResultStatus.FAILED,
     JobStatus.STARTED: TaskResultStatus.RUNNING,
     JobStatus.DEFERRED: TaskResultStatus.READY,
@@ -96,7 +97,7 @@ class Job(BaseJob):
 
         task_result: TaskResult = TaskResult(
             task=task.using(
-                priority=TASK_DEFAULT_PRIORITY,
+                priority=DEFAULT_TASK_PRIORITY,
                 queue_name=self.origin,
                 run_after=run_after,
                 backend=self.meta["backend_name"],
@@ -183,7 +184,7 @@ def failed_callback(
 def success_callback(job: Job, connection: Redis | None, result: Any) -> None:
     task_result = job.task_result
 
-    object.__setattr__(task_result, "status", TaskResultStatus.SUCCEEDED)
+    object.__setattr__(task_result, "status", TaskResultStatus.SUCCESSFUL)
 
     task_finished.send(type(task_result.task.get_backend()), task_result=task_result)
 
