@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import django_rq
 from asgiref.sync import async_to_sync
+from django import VERSION
 from django.core.exceptions import SuspiciousOperation
 from django.test import SimpleTestCase, override_settings
 from django_tasks import TaskResultStatus, default_task_backend, task_backends
@@ -14,6 +15,7 @@ from fakeredis import FakeRedis, FakeStrictRedis
 from rq.defaults import UNSERIALIZABLE_RETURN_VALUE_PAYLOAD
 from rq.timeouts import TimerDeathPenalty
 
+from django_tasks_rq import compat
 from django_tasks_rq.backend import Job, RQBackend
 from tests import tasks as test_tasks
 
@@ -239,7 +241,7 @@ class RQBackendTestCase(SimpleTestCase):
         self.assertIsNotNone(result.started_at)
         self.assertIsNotNone(result.last_attempted_at)
         self.assertIsNotNone(result.finished_at)
-        self.assertEqual(result.status, TaskResultStatus.SUCCEEDED)
+        self.assertEqual(result.status, TaskResultStatus.SUCCESSFUL)
         self.assertTrue(result.is_finished)
         self.assertEqual(result.return_value, 42)
         self.assertEqual(result.attempts, 1)
@@ -263,7 +265,7 @@ class RQBackendTestCase(SimpleTestCase):
         self.assertIsNotNone(result.started_at)
         self.assertIsNotNone(result.last_attempted_at)
         self.assertIsNotNone(result.finished_at)
-        self.assertEqual(result.status, TaskResultStatus.SUCCEEDED)
+        self.assertEqual(result.status, TaskResultStatus.SUCCESSFUL)
         self.assertTrue(result.is_finished)
         self.assertEqual(result.return_value, 42)
         self.assertEqual(result.attempts, 1)
@@ -325,7 +327,7 @@ class RQBackendTestCase(SimpleTestCase):
         self.assertIn("state=RUNNING", captured_logs.output[0])
         self.assertIn(result.id, captured_logs.output[0])
 
-        self.assertIn("state=SUCCEEDED", captured_logs.output[1])
+        self.assertIn("state=SUCCESSFUL", captured_logs.output[1])
         self.assertIn(result.id, captured_logs.output[1])
 
     def test_failed_logs(self) -> None:
@@ -384,7 +386,7 @@ class RQBackendTestCase(SimpleTestCase):
         result = test_tasks.test_context.enqueue(1)
         self.run_worker()
         result.refresh()
-        self.assertEqual(result.status, TaskResultStatus.SUCCEEDED)
+        self.assertEqual(result.status, TaskResultStatus.SUCCESSFUL)
 
     def test_exception_classes_pop_empty_list_bug(self) -> None:
         """Test for IndexError: pop from empty list bug in task_result property
@@ -466,3 +468,13 @@ class RQBackendTestCase(SimpleTestCase):
             InvalidTaskError, "Queue 'unknown_queue' is not valid for backend"
         ):
             await task_with_custom_queue_name.aenqueue()
+
+
+class CompatTestCase(SimpleTestCase):
+    def test_compat_has_django_task(self) -> None:
+        self.assertIn(Task, compat.TASK_CLASSES)
+
+        if VERSION >= (6, 0):
+            from django.tasks.base import Task as DjangoTask
+
+            self.assertIn(DjangoTask, compat.TASK_CLASSES)
