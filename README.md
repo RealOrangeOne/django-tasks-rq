@@ -59,4 +59,8 @@ If a task has a priority of `100`, it is enqueued at the top of the queue, and w
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for information on how to contribute.
 
+<a href="https://github.com/realorangeone/django-tasks-rq/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=realorangeone/django-tasks-rq" />
+</a>
+
 Note: Prior to `0.12.0`, this backend was included in [`django-tasks`](https://github.com/RealOrangeOne/django-tasks/). Whilst the commit history was cleaned up, it's still quite messy. Don't look too closely.
