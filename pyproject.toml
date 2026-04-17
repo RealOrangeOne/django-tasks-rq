@@ -44,7 +44,6 @@ dependencies = [
     "django-stubs-ext",
     "django-rq",
     "rq>=2.5",
-    "rq_scheduler",
     "django-tasks>=0.12.0",
 ]
 
