@@ -80,7 +80,7 @@ class Job(BaseJob):
                 f"Task {self.id} does not point to a Task ({self.func_name})"
             )
 
-        return func  # type: ignore[no-any-return]
+        return func  # type: ignore[return-value]
 
     @cached_property
     def task_result(self) -> TaskResult:

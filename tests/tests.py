@@ -287,7 +287,7 @@ class RQBackendTestCase(SimpleTestCase):
             await default_task_backend.aget_result("123")
 
     def test_invalid_task_path(self) -> None:
-        job = django_rq.get_queue("default", job_class=Job).enqueue_call(  # type: ignore[no-untyped-call]
+        job = django_rq.get_queue("default", job_class=Job).enqueue_call(
             "subprocess.check_output", args=["exit", "1"]
         )
 
