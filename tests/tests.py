@@ -7,6 +7,7 @@ import django_rq
 from asgiref.sync import async_to_sync
 from django import VERSION
 from django.core.exceptions import SuspiciousOperation
+from django.core.management import call_command
 from django.test import SimpleTestCase, override_settings
 from django_tasks import TaskResultStatus, default_task_backend, task_backends
 from django_tasks.base import Task
@@ -478,3 +479,21 @@ class CompatTestCase(SimpleTestCase):
             from django.tasks.base import Task as DjangoTask
 
             self.assertIn(DjangoTask, compat.TASK_CLASSES)
+
+
+class RQTasksWorkerCommandTestCase(SimpleTestCase):
+    target = "django_rq.management.commands.rqworker.Command.handle"
+
+    def test_defaults_job_class(self) -> None:
+        with patch(self.target) as mock_handle:
+            call_command("rqtasksworker")
+
+        _, kwargs = mock_handle.call_args
+        self.assertEqual(kwargs["job_class"], "django_tasks_rq.Job")
+
+    def test_explicit_job_class_is_preserved(self) -> None:
+        with patch(self.target) as mock_handle:
+            call_command("rqtasksworker", "--job-class", "myapp.jobs.MyJob")
+
+        _, kwargs = mock_handle.call_args
+        self.assertEqual(kwargs["job_class"], "myapp.jobs.MyJob")

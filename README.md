@@ -41,9 +41,15 @@ The RQ-based backend acts as an interface between [Django's tasks interface](htt
 
 Any queues defined in `QUEUES` must also be defined in `django-rq`'s `RQ_QUEUES` setting.
 
-### Job class
+### Running a worker
 
-To use `rq` with `django-tasks-rq`, a custom `Job` class must be used. This can be passed to the worker using `--job-class`:
+A convenience management command is provided which starts an `rqworker` with the correct `Job` class already configured:
+
+```shell
+./manage.py rqtasksworker
+```
+
+It accepts the same arguments as `rqworker`. Equivalent to:
 
 ```shell
 ./manage.py rqworker --job-class django_tasks_rq.Job
