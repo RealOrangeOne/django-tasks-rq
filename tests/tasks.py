@@ -77,3 +77,21 @@ def get_task_id(context: TaskContext) -> str:
 def test_context(context: TaskContext, attempt: int) -> None:
     assert isinstance(context, TaskContext)
     assert context.attempt == attempt
+
+
+@task(max_retries=3, retry_delay=45)
+def retry_task_single_delay() -> None:
+    return None
+
+
+@task(max_retries=3, retry_delay=[10, 30, 60])
+def retry_task_iterable_delay() -> None:
+    return None
+
+
+@task(max_retries=1, retry_delay=0, takes_context=True)
+def failing_retry_task(context: TaskContext) -> None:
+    if context.attempt == 1:
+        raise ValueError("First attempt failed")
+
+    raise RuntimeError("Second attempt failed")

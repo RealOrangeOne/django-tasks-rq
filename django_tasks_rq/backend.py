@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from importlib.metadata import version
+from traceback import format_exception
 from types import TracebackType
 from typing import Any, TypeVar, cast
 
@@ -22,12 +23,12 @@ from django_tasks.exceptions import TaskResultDoesNotExist
 from django_tasks.signals import task_enqueued, task_finished, task_started
 from django_tasks.utils import get_module_path, get_random_id
 from redis.client import Redis
+from rq import Retry
 from rq.defaults import UNSERIALIZABLE_RETURN_VALUE_PAYLOAD
 from rq.exceptions import NoSuchJobError
 from rq.job import Callback, JobStatus
 from rq.job import Job as BaseJob
 from rq.registry import ScheduledJobRegistry
-from rq.results import Result
 from typing_extensions import ParamSpec
 
 from .compat import TASK_CLASSES
@@ -48,8 +49,32 @@ RQ_STATUS_TO_RESULT_STATUS = {
 }
 
 
+class RQTask(Task):
+    def __init__(
+        self,
+        *args: Any,
+        max_retries: int = 0,
+        retry_delay: int | Iterable[int] = 60,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
+
+    @property
+    def rq_retry(self) -> Retry | None:
+        if self.max_retries > 0:
+            # interval accepts either an int (e.g., 60) or an iterable of ints (e.g., [10, 30, 60])
+            return Retry(max=self.max_retries, interval=self.retry_delay)
+        return None
+
+
 class Job(BaseJob):
     def perform(self) -> Any:
+        worker_id = self.worker_name or "unknown-worker"
+        self.meta.setdefault("_django_tasks_rq_worker_ids", []).append(worker_id)
+        self.save_meta()  # type: ignore[no-untyped-call]
+
         task_started.send(
             type(self.task_result.task.get_backend()), task_result=self.task_result
         )
@@ -115,33 +140,30 @@ class Job(BaseJob):
             worker_ids=[],
         )
 
-        exception_classes = self.meta.get("_django_tasks_rq_exceptions", []).copy()
+        worker_ids = self.meta.get("_django_tasks_rq_worker_ids", [])
+        task_result.worker_ids.extend(worker_ids)
+
+        exc_classes = self.meta.get("_django_tasks_rq_exceptions", [])
+        tracebacks = self.meta.get("_django_tasks_rq_tracebacks", [])
+
+        for exc_class, tb in zip(exc_classes, tracebacks, strict=False):
+            task_result.errors.append(
+                TaskError(exception_class_path=exc_class, traceback=tb)
+            )
+
+        if task_result.status == TaskResultStatus.FAILED and not task_result.errors:
+            task_result.errors.append(
+                TaskError(
+                    exception_class_path=get_module_path(Exception),
+                    traceback=self.exc_info or "",
+                )
+            )
 
         rq_results = self.results()
-
-        for rq_result in rq_results:
-            task_result.worker_ids.append(rq_result.worker_name)
-            if rq_result.type == Result.Type.FAILED:
-                task_result.errors.append(
-                    TaskError(
-                        exception_class_path=(
-                            exception_classes.pop()
-                            if len(exception_classes) > 0
-                            else get_module_path(Exception)
-                        ),
-                        traceback=rq_result.exc_string,  # type: ignore[arg-type]
-                    )
-                )
-
-        if self.worker_name and task_result.status == TaskResultStatus.RUNNING:
-            task_result.worker_ids.append(self.worker_name)
-
         if rq_results:
+            object.__setattr__(task_result, "_return_value", rq_results[0].return_value)
             object.__setattr__(
-                task_result, "_return_value", rq_results[-1].return_value
-            )
-            object.__setattr__(
-                task_result, "last_attempted_at", rq_results[-1].created_at
+                task_result, "last_attempted_at", rq_results[0].created_at
             )
 
         # If the return value couldn't be serialized, a specific string is saved instead.
@@ -166,13 +188,19 @@ def failed_callback(
     connection: Redis | None,
     exception_class: type[Exception],
     exception_value: Exception,
-    traceback: TracebackType,
+    traceback: TracebackType | None,
 ) -> None:
     # Smuggle the exception class through meta
     job.meta.setdefault("_django_tasks_rq_exceptions", []).append(
         get_module_path(exception_class)
     )
+    job.meta.setdefault("_django_tasks_rq_tracebacks", []).append(
+        "".join(format_exception(exception_class, exception_value, traceback))
+    )
     job.save_meta()  # type: ignore[no-untyped-call]
+
+    if job.retries_left:
+        return
 
     task_result = job.task_result
 
@@ -193,6 +221,7 @@ class RQBackend(BaseTaskBackend):
     supports_async_task = True
     supports_get_result = True
     supports_defer = True
+    task_class = RQTask
 
     def __init__(self, alias: str, params: dict) -> None:
         super().__init__(alias, params)
@@ -234,6 +263,7 @@ class RQBackend(BaseTaskBackend):
             on_failure=Callback(failed_callback),
             on_success=Callback(success_callback),
             meta={"backend_name": self.alias},
+            retry=task.rq_retry,
         )
 
         if task.run_after is None:
