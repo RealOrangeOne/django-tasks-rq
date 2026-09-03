@@ -1,22 +1,24 @@
 import os
 import uuid
 from typing import cast
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import django_rq
 from asgiref.sync import async_to_sync
 from django import VERSION
 from django.core.exceptions import SuspiciousOperation
 from django.test import SimpleTestCase, override_settings
+from django_rq.queues import DjangoRQ
 from django_tasks import TaskResultStatus, default_task_backend, task_backends
 from django_tasks.base import Task
 from django_tasks.exceptions import InvalidTaskError, TaskResultDoesNotExist
+from django_tasks.signals import task_finished
 from fakeredis import FakeRedis, FakeStrictRedis
 from rq.defaults import UNSERIALIZABLE_RETURN_VALUE_PAYLOAD
 from rq.timeouts import TimerDeathPenalty
 
 from django_tasks_rq import compat
-from django_tasks_rq.backend import Job, RQBackend
+from django_tasks_rq.backend import Job, RQBackend, failed_callback
 from tests import tasks as test_tasks
 
 
@@ -76,6 +78,23 @@ class RQBackendTestCase(SimpleTestCase):
 
             with self.assertLogs("rq.worker"):
                 worker.work(burst=True)
+
+    def run_single_task(self) -> None:
+        from rq import SimpleWorker
+
+        queues = default_task_backend._get_queues()
+
+        result = DjangoRQ.dequeue_any(
+            queues, timeout=1, connection=django_rq.get_connection(), job_class=Job
+        )
+        if result:
+            job, queue = result
+            worker = SimpleWorker(
+                queues, connection=django_rq.get_connection(), job_class=Job
+            )
+
+            with self.assertLogs("rq.worker"):
+                worker.perform_job(job, queue)
 
     def test_using_correct_backend(self) -> None:
         self.assertEqual(default_task_backend, task_backends["default"])
@@ -468,6 +487,80 @@ class RQBackendTestCase(SimpleTestCase):
             InvalidTaskError, "Queue 'unknown_queue' is not valid for backend"
         ):
             await task_with_custom_queue_name.aenqueue()
+
+    def test_rq_retry_configuration_single_delay(self) -> None:
+        result = test_tasks.retry_task_single_delay.enqueue()
+
+        job = cast(RQBackend, default_task_backend)._get_job(result.id)
+
+        self.assertIsNotNone(job)
+        self.assertEqual(job.retries_left, 3)
+        self.assertEqual(
+            job.retry_intervals,
+            [test_tasks.retry_task_single_delay.retry_delay],
+        )
+
+    def test_rq_retry_configuration_iterable_delay(self) -> None:
+        result = test_tasks.retry_task_iterable_delay.enqueue()
+
+        job = cast(RQBackend, default_task_backend)._get_job(result.id)
+
+        self.assertIsNotNone(job)
+        self.assertEqual(job.retries_left, 3)
+        self.assertEqual(
+            job.retry_intervals, test_tasks.retry_task_iterable_delay.retry_delay
+        )
+
+    def test_failed_callback_respects_retries(self) -> None:
+        mock_job = MagicMock()
+        mock_job.meta = {}
+        mock_job.retries_left = 1
+        mock_job.task_result.task.get_backend.return_value = default_task_backend
+
+        signal_spy = MagicMock()
+        task_finished.connect(signal_spy)
+
+        try:
+            failed_callback(mock_job, None, ValueError, ValueError("First fail"), None)
+
+            mock_job.save_meta.assert_called_once()
+            signal_spy.assert_not_called()
+
+            mock_job.retries_left = 0
+            with self.assertLogs("django_tasks", level="DEBUG"):
+                failed_callback(
+                    mock_job, None, ValueError, ValueError("Second fail"), None
+                )
+
+            signal_spy.assert_called_once()
+
+        finally:
+            task_finished.disconnect(signal_spy)
+
+    def test_retry_integration_execution(self) -> None:
+        result = test_tasks.failing_retry_task.enqueue()
+
+        with self.assertLogs("django_tasks", level="DEBUG"):
+            self.run_single_task()
+
+        result.refresh()
+        self.assertEqual(result.status, TaskResultStatus.READY)
+        self.assertEqual(len(result.errors), 1)
+        self.assertEqual(result.errors[0].exception_class, ValueError)
+
+        with self.assertLogs("django_tasks", level="DEBUG"):
+            self.run_single_task()
+
+        result.refresh()
+
+        self.assertEqual(result.status, TaskResultStatus.FAILED)
+        self.assertEqual(len(result.errors), 2)
+
+        self.assertEqual(result.errors[0].exception_class, ValueError)
+        self.assertIn("First attempt failed", result.errors[0].traceback)
+
+        self.assertEqual(result.errors[1].exception_class, RuntimeError)
+        self.assertIn("Second attempt failed", result.errors[1].traceback)
 
 
 class CompatTestCase(SimpleTestCase):
